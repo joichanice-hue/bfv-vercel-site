@@ -15,7 +15,7 @@ module.exports = async (req, res) => {
     const event_name = body.event_name || 'PageView';
     const event_id = body.event_id || randomUUID();
     const event_time = Math.floor(Date.now()/1000);
-    const event_source_url = req.headers['referer'] || '';
+    const event_source_url = body.event_source_url || '';  // trust what client sends
     const ip = (req.headers['x-forwarded-for'] || '').split(',')[0] || (req.socket && req.socket.remoteAddress) || '';
     const ua = req.headers['user-agent'] || '';
 
