@@ -63,14 +63,24 @@ const uuid = () => (crypto?.randomUUID?.() || ('evt_' + Math.random().toString(3
 
 async function postCapi(event_name, custom_data, event_id){
   const test_event_code = document.getElementById('test-code').value.trim() || undefined;
-  const body = { event_name, event_id };
+  const body = {
+    event_name,
+    event_id,
+    event_source_url: window.location.href   // NEW: send same URL browser used
+  };
   if (custom_data && Object.keys(custom_data).length) body.custom_data = custom_data;
   if (test_event_code) body.test_event_code = test_event_code;
-  const res = await fetch('/api/hook', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body) });
+
+  const res = await fetch('/api/hook', {
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body: JSON.stringify(body)
+  });
   const json = await res.json().catch(()=>({}));
-  out('api-output', json, res.ok? 'ok' : 'bad');
+  document.getElementById('api-output').textContent = JSON.stringify(json,null,2);
   return res.ok;
 }
+
 
 function send(eventName, mode='both'){
   const id = uuid();
