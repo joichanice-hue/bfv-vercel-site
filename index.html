@@ -3,18 +3,18 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>BFV • Vercel Pixel/CAPI Diagnostic</title>
+<title>BFV • Dedupe V2</title>
 <style>
   body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Inter,sans-serif;background:#0b0b0d;color:#f5f5f7;margin:0;padding:24px}
   .card{background:#111;border:1px solid #222;border-radius:14px;padding:18px;margin:0 auto 16px;max-width:880px}
   h1{font-size:22px;margin:0 0 10px}
   h2{font-size:16px;margin:0 0 8px;color:#ddd}
-  code,pre{background:#0d0d0f;border:1px solid #222;border-radius:8px;padding:8px 10px;display:block;overflow:auto}
   button{padding:10px 14px;border-radius:8px;border:1px solid #333;background:#1b1b1f;color:#fff;cursor:pointer}
   button:hover{filter:brightness(1.1)}
-  .ok{color:#79ffa1}.bad{color:#ff6b6b}.muted{color:#aaa}
+  pre{background:#0d0d0f;border:1px solid #222;border-radius:8px;padding:8px 10px;overflow:auto}
   input[type=text]{width:100%;padding:10px 12px;border-radius:8px;border:1px solid #333;background:#0d0d10;color:#fff}
   .row{display:flex;gap:10px;flex-wrap:wrap}
+  .ok{color:#79ffa1}.bad{color:#ff6b6b}.muted{color:#aaa}
 </style>
 
 <!-- Meta Pixel (replace YOUR_PIXEL_ID below) -->
@@ -25,85 +25,68 @@ n.push=n;n.loaded=!0;n.version='2.0';n.queue=[];t=b.createElement(e);t.async=!0;
 t.src=v;s=b.getElementsByTagName(e)[0];s.parentNode.insertBefore(t,s)}(window,document,'script',
 'https://connect.facebook.net/en_US/fbevents.js');
 
-window.BFV = { PIXEL_ID: '1064489478594024' }; // <-- replace in GitHub
+window.BFV = { PIXEL_ID: 'YOUR_PIXEL_ID' }; // <-- replace
 try { fbq('init', BFV.PIXEL_ID); } catch(e){ console.warn('fbq init error', e); }
 </script>
-<noscript><img height="1" width="1" style="display:none"
-  src="https://www.facebook.com/tr?id=YOUR_PIXEL_ID&ev=PageView&noscript=1"
-/></noscript>
 </head>
 <body>
 <div class="card">
-  <h1>BFV • Pixel + CAPI Diagnostic</h1>
-  <div class="muted">Use this page to prove the stack works before moving your full site.</div>
+  <h1>BFV • Pixel + CAPI Diagnostic (V2)</h1>
+  <div class="muted">This version only fires when you click.</div>
 </div>
 
 <div class="card">
-  <h2>1) Pixel (Browser) test</h2>
-  <div id="pixel-status" class="muted">Waiting…</div>
-  <div class="row" style="margin-top:8px">
-    <button id="btn-pageview">Send PageView (Browser+Server)</button>
-    <button id="btn-lead">Send Lead (Browser+Server)</button>
-  </div>
-</div>
-
-<div class="card">
-  <h2>2) CAPI (/api/hook) test</h2>
-  <div class="row">
-    <button id="btn-ping">Ping /api/hook</button>
-    <button id="btn-server-pageview">Send Server PageView only</button>
-  </div>
-  <pre id="api-output" class="muted">No response yet…</pre>
-</div>
-
-<div class="card">
-  <h2>3) Test Events helper</h2>
-  <div>Optional: paste your <b>Meta Test Event Code</b> here so server events show in Test Events:</div>
+  <h2>1) Test Events code (optional)</h2>
   <input id="test-code" type="text" placeholder="TESTxxxxx (optional)" />
+</div>
+
+<div class="card">
+  <h2>2) Send events</h2>
+  <div class="row">
+    <button id="btn-pv-both">PageView (Browser+Server)</button>
+    <button id="btn-pv-browser">PageView (Browser only)</button>
+    <button id="btn-pv-server">PageView (Server only)</button>
+  </div>
+  <div class="row" style="margin-top:10px">
+    <button id="btn-lead-both">Lead (Browser+Server)</button>
+  </div>
+</div>
+
+<div class="card">
+  <h2>3) API Response</h2>
+  <pre id="api-output" class="muted">No call yet…</pre>
 </div>
 
 <script>
 const out = (el, v, cls='') => { const d = document.getElementById(el); d.textContent = typeof v==='string'? v : JSON.stringify(v,null,2); d.className = cls; };
 const uuid = () => (crypto?.randomUUID?.() || ('evt_' + Math.random().toString(36).slice(2) + Date.now()));
 
-async function postCapi(event_name, custom_data, event_id, onlyServer=false){
+async function postCapi(event_name, custom_data, event_id){
   const test_event_code = document.getElementById('test-code').value.trim() || undefined;
-  const body = { event_name, custom_data, event_id, test_event_code };
+  const body = { event_name, event_id };
+  if (custom_data && Object.keys(custom_data).length) body.custom_data = custom_data;
+  if (test_event_code) body.test_event_code = test_event_code;
   const res = await fetch('/api/hook', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body) });
   const json = await res.json().catch(()=>({}));
   out('api-output', json, res.ok? 'ok' : 'bad');
-  return { ok: res.ok, json };
+  return res.ok;
 }
 
-async function send(eventName){
+function send(eventName, mode='both'){
   const id = uuid();
-  // Browser Pixel
-  try { fbq('track', eventName, {}, { eventID: id }); } catch(e){}
-  // Server CAPI
-  await postCapi(eventName, {value: eventName==='Lead'?1:0, currency:'USD'}, id);
-  out('pixel-status', `Sent ${eventName} with event_id=${id}. Check Meta Test Events.`, 'ok');
-}
-
-document.getElementById('btn-pageview').onclick = () => send('PageView');
-document.getElementById('btn-lead').onclick = () => send('Lead');
-document.getElementById('btn-ping').onclick = async () => {
-  const res = await fetch('/api/hook');
-  const json = await res.json().catch(()=>({}));
-  out('api-output', json, res.ok? 'ok':'bad');
-};
-document.getElementById('btn-server-pageview').onclick = async () => {
-  const id = uuid();
-  await postCapi('PageView', {value:0,currency:'USD'}, id, true);
-};
-
-// Auto-fire a PageView once when visible
-document.addEventListener('visibilitychange', ()=>{
-  if(document.visibilityState==='visible' && !window.__pv){
-    window.__pv = true;
-    send('PageView');
+  if (mode==='browser' || mode==='both'){
+    try { fbq('track', eventName, {}, { eventID: id }); } catch(e){ console.warn(e); }
   }
-});
-if (document.visibilityState==='visible'){ window.__pv=true; send('PageView'); }
+  if (mode==='server' || mode==='both'){
+    const customData = eventName === 'Lead' ? { value:1, currency:'USD' } : undefined; // omit for PageView
+    postCapi(eventName, customData, id);
+  }
+}
+
+document.getElementById('btn-pv-both').onclick    = () => send('PageView','both');
+document.getElementById('btn-pv-browser').onclick = () => send('PageView','browser');
+document.getElementById('btn-pv-server').onclick  = () => send('PageView','server');
+document.getElementById('btn-lead-both').onclick  = () => send('Lead','both');
 </script>
 </body>
 </html>
