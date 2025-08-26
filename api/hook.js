@@ -1,9 +1,9 @@
-// /api/hook.js — CommonJS, omit custom_data for PageView
+// /api/hook.js — V3 with event_source_url from client
 const { randomUUID } = require('crypto');
 
 module.exports = async (req, res) => {
   if (req.method !== 'POST') {
-    return res.status(200).json({ ok:true, message:'POST {event_name, event_id, custom_data?}' });
+    return res.status(200).json({ ok:true, message:'POST {event_name, event_id, event_source_url, custom_data?}' });
   }
   const PIXEL_ID = process.env.META_PIXEL_ID;
   const ACCESS_TOKEN = process.env.META_ACCESS_TOKEN;
@@ -15,7 +15,7 @@ module.exports = async (req, res) => {
     const event_name = body.event_name || 'PageView';
     const event_id = body.event_id || randomUUID();
     const event_time = Math.floor(Date.now()/1000);
-    const event_source_url = body.event_source_url || '';  // trust what client sends
+    const event_source_url = body.event_source_url || '';
     const ip = (req.headers['x-forwarded-for'] || '').split(',')[0] || (req.socket && req.socket.remoteAddress) || '';
     const ua = req.headers['user-agent'] || '';
 
@@ -23,9 +23,8 @@ module.exports = async (req, res) => {
       event_name, event_time, action_source:'website', event_source_url, event_id,
       user_data: { client_ip_address: ip, client_user_agent: ua }
     };
-    if (body.custom_data && Object.keys(body.custom_data).length) {
-      dataItem.custom_data = body.custom_data;
-    }
+    if (body.custom_data && Object.keys(body.custom_data).length) dataItem.custom_data = body.custom_data;
+
     const payload = { data:[dataItem] };
     if (process.env.META_TEST_EVENT_CODE) payload.test_event_code = process.env.META_TEST_EVENT_CODE;
     if (body.test_event_code) payload.test_event_code = body.test_event_code;
